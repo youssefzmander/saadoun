@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 //import 'package:flutter_application_1/mainHome.dart';
 import 'package:saadoun/auth.dart';
 import 'package:saadoun/localStorage.dart';
+import 'package:saadoun/mainHome.dart';
 import 'package:saadoun/signup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -70,12 +71,11 @@ class _SignInState extends State<SignIn> {
         lStorage.addToLocalStorage('userData', jsonMap).then((value) => {
               print('S7iii7'),
             });
-      })
-      /*.then((value) => Navigator.push(
+      }).then((value) => Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => BottomNavigation()),
           ))
-          */
+          
 );
     } on FirebaseAuthException catch (e) {
       setState(() {
