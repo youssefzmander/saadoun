@@ -1,73 +1,143 @@
 import 'package:flutter/material.dart';
-import 'package:saadoun/auth.dart';
-import 'package:saadoun/signin.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class contact extends StatelessWidget{
-  
-static const double latitude = 36.818559;
-  static const double longitude = 10.129248;
+class AdminDashboard extends StatefulWidget {
+  @override
+  _AdminDashboardState createState() => _AdminDashboardState();
+}
 
-  // Method to launch Google Maps
-  void _launchGoogleMaps() async {
-    // Construct the URL
-    //final url = 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
-    final Uri url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$latitude,$longitude');
-    // Check if the device supports launching URLs
-    if (!await launchUrl(url)) {
-    throw Exception('Could not launch $url');
+class _AdminDashboardState extends State<AdminDashboard> {
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isAuthenticated = false;
+  String? _errorMessage;
+  Map<String, dynamic>? stockData; // Store the stock admin data here
+
+  // Admin password
+  final String adminPassword = '1996';
+
+  void _checkPassword() {
+    if (_passwordController.text == adminPassword) {
+      setState(() {
+        _isAuthenticated = true;
+        _errorMessage = null;
+      });
+      Navigator.of(context).pop(); // Close the popup if the password is correct
+      _fetchStockData(); // Fetch stock data after authentication
+    } else {
+      setState(() {
+        _errorMessage = 'Incorrect password. Please try again.';
+      });
+    }
   }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showPasswordPopup();
+    });
   }
+
+  void _showPasswordPopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent closing the popup by tapping outside
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Admin Login'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _passwordController,
+                decoration: InputDecoration(
+                  labelText: 'Enter Admin Password',
+                  errorText: _errorMessage,
+                ),
+                obscureText: true, // Hide the password input
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the popup
+              },
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: _checkPassword,
+              child: Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _fetchStockData() async {
+    try {
+      DocumentSnapshot documentSnapshot = await FirebaseFirestore.instance
+          .collection('stockadmin')
+          .doc('realtimeStock')
+          .get();
+
+      setState(() {
+        stockData = documentSnapshot.data() as Map<String, dynamic>?;
+      });
+    } catch (e) {
+      print('Error fetching stock data: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-     return Scaffold(
-      appBar: AppBar( title:Text("About Us"),centerTitle: true, backgroundColor: Colors.blue,
-        actions: <Widget>[
-          
-          IconButton(
-            icon: Icon(Icons.info),
-            onPressed: () {
-            
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.logout),
-            onPressed: () {
-              Auth().signOut();
-              Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => SignIn()),
-            );
-            },
-          ),
-          ],) ,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-         // Align children to the start
-        children: [
-          Image.asset(
-            'assets/BOSCH.png', // Path to your image asset
-            width: double.infinity, // Set width to fill the entire width
-            height: 200, // Adjust height as needed
-            //fit: BoxFit.cover, // Adjust how the image is displayed
-          ),
-
-          Padding(
-  padding: EdgeInsets.symmetric(horizontal: 16.0,vertical: 25.0), // Adjust the horizontal padding as needed
-  child: Text(
-    "Welcome to BOSCH Car Service Sliti Auto, serving our community since 2011. With expert technicians and cutting-edge equipment, we provide comprehensive car repair and maintenance services. As an authorized BOSCH Car Service center, we uphold the highest standards of quality and professionalism. Trust us to keep your vehicle running smoothly.",
-  ),
-),
- Center(
-            
-            child: ElevatedButton(
-              onPressed: _launchGoogleMaps,
-              child: Text('Navigate to our location'),
-            ),
-          )
-          // Add other widgets below the image if needed
-        ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Admin Dashboard"),
+        centerTitle: true,
       ),
+      body: _isAuthenticated
+          ? Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: stockData == null
+                  ? Center(
+                      child:
+                          CircularProgressIndicator()) // Show loading until data is fetched
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Stock Admin Data",
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 20),
+                        Expanded(
+                          child: ListView(
+                            children: stockData!.entries.map((entry) {
+                              return ListTile(
+                                title: Text(entry
+                                    .key), // The key of the data (e.g., item name)
+                                subtitle: Text(
+                                    'Quantity: ${entry.value}'), // The value of the data (e.g., quantity)
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
+                    ),
+            )
+          : Center(
+              child:
+                  CircularProgressIndicator(), // Show loading until authenticated
+            ),
     );
+  }
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
   }
 }

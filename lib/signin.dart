@@ -41,8 +41,11 @@ class _SignInState extends State<SignIn> {
     print('Userrrrrrrrrr: $user');
     print('UserrrrrrrrrrUID: ${user?.uid}');
     if (user?.uid != null) {
-      DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await FirebaseFirestore.instance.collection('users').doc(user?.uid).get();
+      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
+          .instance
+          .collection('users')
+          .doc(user?.uid)
+          .get();
 
       if (snapshot.exists) {
         Map<String, dynamic> userData = snapshot.data()!;
@@ -61,46 +64,48 @@ class _SignInState extends State<SignIn> {
 
   Future<void> signInWithEmailAndPassword(BuildContext context) async {
     try {
-      await Auth().signInWithEmailAndPassword(
-        email: _controllerEmail.text,
-        password: _controllerPassword.text,
-      ).then((value) => 
-      getUserData().then((userData) async {
-        print('User Data: $userData');
-        String jsonMap = jsonEncode(userData);
-        lStorage.addToLocalStorage('userData', jsonMap).then((value) => {
-              print('S7iii7'),
-            });
-      }).then((value) => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => BottomNavigation()),
-          ))
-          
-);
+      await Auth()
+          .signInWithEmailAndPassword(
+            email: _controllerEmail.text,
+            password: _controllerPassword.text,
+          )
+          .then((value) => getUserData().then((userData) async {
+                print('User Data: $userData');
+                String jsonMap = jsonEncode(userData);
+                lStorage
+                    .addToLocalStorage('userData', jsonMap)
+                    .then((value) => {
+                          print('S7iii7'),
+                        });
+              }).then((value) => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => BottomNavigation()),
+                  )));
     } on FirebaseAuthException catch (e) {
       setState(() {
-        
-          errorMessage = e.code;
-          // Show SnackBar with error message
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-    content: Padding(
-      padding: EdgeInsets.only(bottom: 10), // Add bottom margin here
-      child: Text(
-        errorMessage!,
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 20,fontWeight: FontWeight.bold,), // Change font size here
-      ),
-    ),
-    backgroundColor: const Color.fromARGB(255, 207, 62, 52), // Change background color here
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(30), // Change shape here
-    ),
-  ),
-    );
-          
-        
+        errorMessage = e.code;
+        // Show SnackBar with error message
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Padding(
+              padding: EdgeInsets.only(bottom: 10), // Add bottom margin here
+              child: Text(
+                errorMessage!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ), // Change font size here
+              ),
+            ),
+            backgroundColor: const Color.fromARGB(
+                255, 207, 62, 52), // Change background color here
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30), // Change shape here
+            ),
+          ),
+        );
       });
     }
   }
@@ -108,12 +113,10 @@ class _SignInState extends State<SignIn> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      
-      
-        
-        body: SafeArea(
-          child: Padding(
-        padding: EdgeInsets.only(left: 20.0,right: 20.0), // Adjust the left padding as needed
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(
+              left: 20.0, right: 20.0), // Adjust the left padding as needed
           child: Column(
             children: [
               Row(
@@ -161,16 +164,13 @@ class _SignInState extends State<SignIn> {
                       ),
                     ),
                   ),
-                  
                   ElevatedButton(
                     onPressed: () {
                       // Pass context to signInWithEmailAndPassword function
                       signInWithEmailAndPassword(context);
-                      
                     },
                     child: Text('Log In'),
                   ),
-                  
                 ],
               ),
               SizedBox(height: 20),
@@ -183,7 +183,7 @@ class _SignInState extends State<SignIn> {
               SizedBox(height: 10),
               TextButton(
                 onPressed: () {
-                 Navigator.push(
+                  Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => SignUp()),
                   );
@@ -199,7 +199,7 @@ class _SignInState extends State<SignIn> {
             ],
           ),
         ),
-        ),
+      ),
     );
   }
 }
