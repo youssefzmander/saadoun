@@ -54,6 +54,10 @@ class _HomePageState extends State<HomePage> {
     };
 
     try {
+      await FirebaseFirestore.instance
+          .collection('stock')
+          .doc('$date')
+          .set({'key': 'value'});
       // Save to the stock collection
       await FirebaseFirestore.instance
           .collection('stock/$date/$period')

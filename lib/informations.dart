@@ -9,6 +9,13 @@ class ClientCreditsPage extends StatefulWidget {
 class _ClientCreditsPageState extends State<ClientCreditsPage> {
   final TextEditingController _clientNameController = TextEditingController();
 
+  // Define the list of predefined articles
+  final List<Map<String, dynamic>> _predefinedArticles = [
+    {'name': 'Express', 'price': 1300},
+    {'name': 'Cappuccino', 'price': 1500},
+    {'name': 'Direct', 'price': 1700},
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,6 +92,7 @@ class _ClientCreditsPageState extends State<ClientCreditsPage> {
       FirebaseFirestore.instance.collection('credit').doc(clientName).set({
         'totalCredit': 0,
         'articles': [],
+        'paid': false, // Adding a 'paid' field to track payment status
       }).then((_) {
         _clientNameController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,6 +111,7 @@ class _ClientCreditsPageState extends State<ClientCreditsPage> {
   }
 
   // Function to show client details and add articles
+  // Function to show client details and add articles
   void _showClientDetails(BuildContext context, String clientName) {
     showDialog(
       context: context,
@@ -116,19 +125,29 @@ class _ClientCreditsPageState extends State<ClientCreditsPage> {
                 .get(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
-                return CircularProgressIndicator();
+                return Center(child: CircularProgressIndicator());
               }
 
               final creditData = snapshot.data!;
               final articles = creditData['articles'] ?? [];
+              final isPaid =
+                  creditData.data() != null && (creditData['paid'] ?? false);
 
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  // List of Articles
+                  // List of Articles with Optional Delete Icon
                   ...articles.map<Widget>((article) => ListTile(
                         title: Text(article['name']),
                         subtitle: Text('Price: ${article['price']}'),
+                        trailing: isPaid
+                            ? IconButton(
+                                icon: Icon(Icons.delete, color: Colors.red),
+                                onPressed: () {
+                                  _removeArticle(clientName, article);
+                                },
+                              )
+                            : null,
                       )),
                   SizedBox(height: 20),
                   // Add Article Button
@@ -156,62 +175,50 @@ class _ClientCreditsPageState extends State<ClientCreditsPage> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
+        return SimpleDialog(
           title: Text('Choose an Article'),
-          content: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('articles')
-                .doc('rCpBmbLW0edccnDug07E')
-                .collection(
-                    'articles') // Ensure this matches your collection structure
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return Center(child: CircularProgressIndicator());
-              }
-
-              final articles = snapshot.data!.docs;
-
-              if (articles.isEmpty) {
-                return Text('No articles available');
-              }
-
-              return ListView.builder(
-                shrinkWrap: true,
-                itemCount: articles.length,
-                itemBuilder: (context, index) {
-                  final article = articles[index];
-                  return ListTile(
-                    title: Text(article['name']),
-                    subtitle: Text('Price: ${article['price']}'),
-                    onTap: () {
-                      FirebaseFirestore.instance
-                          .collection('credit')
-                          .doc(clientName)
-                          .update({
-                        'articles': FieldValue.arrayUnion([
-                          {'name': article['name'], 'price': article['price']}
-                        ]),
-                        'totalCredit': FieldValue.increment(article['price']),
-                      });
-                      Navigator.of(context)
-                          .pop(); // Close article selection dialog
-                      Navigator.of(context)
-                          .pop(); // Close client details dialog
-                    },
-                  );
-                },
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Close'),
-            ),
-          ],
+          children: _predefinedArticles.map((article) {
+            return SimpleDialogOption(
+              onPressed: () {
+                FirebaseFirestore.instance
+                    .collection('credit')
+                    .doc(clientName)
+                    .update({
+                  'articles': FieldValue.arrayUnion([
+                    {'name': article['name'], 'price': article['price']}
+                  ]),
+                  'totalCredit': FieldValue.increment(article['price']),
+                });
+                Navigator.of(context).pop(); // Close article selection dialog
+                Navigator.of(context).pop(); // Close client details dialog
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Text('${article['name']} - Price: ${article['price']}'),
+              ),
+            );
+          }).toList(),
         );
       },
     );
+  }
+
+  // Function to remove an article from the client's credit
+  void _removeArticle(String clientName, Map<String, dynamic> article) {
+    FirebaseFirestore.instance.collection('credit').doc(clientName).update({
+      'articles': FieldValue.arrayRemove([
+        {'name': article['name'], 'price': article['price']}
+      ]),
+      'totalCredit': FieldValue.increment(-article['price']),
+    }).then((_) {
+      Navigator.of(context).pop(); // Close client details dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Article removed successfully!')),
+      );
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to remove article: $error')),
+      );
+    });
   }
 }

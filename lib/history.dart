@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:saadoun/localStorage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
@@ -9,7 +8,6 @@ class History extends StatefulWidget {
 }
 
 class _HistoryState extends State<History> {
-  final LStorage? lStorage = LStorage();
   final List<String> products = [
     'Café',
     'Lait',
@@ -30,7 +28,7 @@ class _HistoryState extends State<History> {
   final TextEditingController quantityController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
 
-  void saveDataToFirestore() async {
+  Future<void> saveDataToFirestore() async {
     if (selectedProduct != null &&
         quantityController.text.isNotEmpty &&
         priceController.text.isNotEmpty) {
@@ -55,7 +53,7 @@ class _HistoryState extends State<History> {
         if (snapshot.exists) {
           // If the document already exists, merge the new data with the existing data
           final Map<String, dynamic> existingData =
-              snapshot.data() as Map<String, dynamic>;
+              snapshot.data() as Map<String, dynamic>? ?? {};
           final Map<String, dynamic> updatedData = existingData['data'] ?? {};
 
           updatedData[product] = newData;
@@ -70,10 +68,39 @@ class _HistoryState extends State<History> {
         }
       });
 
+      // Update the stock data
+      await updateStockData(product, quantity);
+
       print('Data saved to Firestore');
     } else {
       print('Please select a product and enter both quantity and price');
     }
+  }
+
+  Future<void> updateStockData(String product, int quantity) async {
+    final DocumentReference stockRef = FirebaseFirestore.instance
+        .collection('stockadmin')
+        .doc('realtimeStock');
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final DocumentSnapshot snapshot = await transaction.get(stockRef);
+
+      if (snapshot.exists) {
+        // If the document exists, update the quantity
+        final Map<String, dynamic> stockData =
+            snapshot.data() as Map<String, dynamic>? ?? {};
+        final int currentQuantity = stockData[product] ?? 0;
+
+        transaction.update(stockRef, {
+          product: currentQuantity + quantity,
+        });
+      } else {
+        // If the document does not exist, create it with the initial quantity
+        transaction.set(stockRef, {
+          product: quantity,
+        });
+      }
+    });
   }
 
   @override

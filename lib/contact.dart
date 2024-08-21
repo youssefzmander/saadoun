@@ -7,13 +7,13 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  final TextEditingController _passwordController = TextEditingController();
   bool _isAuthenticated = false;
   String? _errorMessage;
-  Map<String, dynamic>? stockData; // Store the stock admin data here
+  final TextEditingController _passwordController = TextEditingController();
 
-  // Admin password
   final String adminPassword = '1996';
+
+  List<Widget> _stockDataWidgets = [];
 
   void _checkPassword() {
     if (_passwordController.text == adminPassword) {
@@ -21,13 +21,154 @@ class _AdminDashboardState extends State<AdminDashboard> {
         _isAuthenticated = true;
         _errorMessage = null;
       });
-      Navigator.of(context).pop(); // Close the popup if the password is correct
-      _fetchStockData(); // Fetch stock data after authentication
+      Navigator.of(context).pop();
+      _loadStockData();
     } else {
       setState(() {
         _errorMessage = 'Incorrect password. Please try again.';
       });
     }
+  }
+
+  void _loadStockData() async {
+    try {
+      QuerySnapshot stockSnapshots = await FirebaseFirestore.instance
+          .collection('stock')
+          .orderBy(FieldPath.documentId)
+          .get();
+
+      print(
+          'Number of documents in stock collection: ${stockSnapshots.docs.length}');
+
+      if (stockSnapshots.docs.isEmpty) {
+        print('No documents found in the stock collection.');
+        setState(() {
+          _stockDataWidgets = [
+            ListTile(
+              title: Text('No stock data available.'),
+            ),
+          ];
+        });
+      } else {
+        print('Documents found, processing...');
+        setState(() {
+          _stockDataWidgets = stockSnapshots.docs.map((doc) {
+            return ListTile(
+              title: Text('Date: ${doc.id}'),
+              onTap: () {
+                _showStockDetails(doc.id);
+              },
+            );
+          }).toList();
+        });
+      }
+    } catch (e) {
+      print('Error fetching stock data: $e');
+      setState(() {
+        _stockDataWidgets = [
+          ListTile(
+            title: Text('Error fetching stock data: $e'),
+          ),
+        ];
+      });
+    }
+  }
+
+  void _showStockDetails(String date) async {
+    List<Widget> stockDetailsWidgets = [];
+
+    try {
+      DocumentSnapshot stockSnapshot =
+          await FirebaseFirestore.instance.collection('stock').doc(date).get();
+
+      if (stockSnapshot.exists) {
+        print('Stock data found for date: $date');
+        stockDetailsWidgets.add(
+          ListTile(
+            title: Text('Date: $date'),
+            subtitle: Text('Stock: ${stockSnapshot.data()}'),
+          ),
+        );
+
+        // List of expected sub-collections
+        List<String> subCollections = ['day', 'night', 'other'];
+
+        for (String subCollection in subCollections) {
+          try {
+            QuerySnapshot subCollectionSnapshot = await FirebaseFirestore
+                .instance
+                .collection('stock')
+                .doc(date)
+                .collection(subCollection)
+                .get();
+
+            if (subCollectionSnapshot.docs.isEmpty) {
+              stockDetailsWidgets.add(
+                ListTile(
+                  title: Text('  Date: $date'),
+                  subtitle: Text('  Stock in $subCollection: No data'),
+                ),
+              );
+            } else {
+              for (var subDoc in subCollectionSnapshot.docs) {
+                print('Sub-Document ID: ${subDoc.id}, Data: ${subDoc.data()}');
+                stockDetailsWidgets.add(
+                  ListTile(
+                    title: Text('  Date: ${subDoc.id}'),
+                    subtitle:
+                        Text('  Stock in $subCollection: ${subDoc.data()}'),
+                  ),
+                );
+              }
+            }
+          } catch (e) {
+            print('Error fetching sub-collection $subCollection: $e');
+            stockDetailsWidgets.add(
+              ListTile(
+                title: Text('Error fetching $subCollection: $e'),
+              ),
+            );
+          }
+        }
+      } else {
+        print('No stock data found for date: $date');
+        stockDetailsWidgets.add(
+          ListTile(
+            title: Text('No stock data available for date: $date'),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error fetching stock data for date $date: $e');
+      stockDetailsWidgets.add(
+        ListTile(
+          title: Text('Error fetching stock data for date $date: $e'),
+        ),
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Stock Details for $date'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: stockDetailsWidgets,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -41,7 +182,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _showPasswordPopup() {
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent closing the popup by tapping outside
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Admin Login'),
@@ -54,14 +195,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   labelText: 'Enter Admin Password',
                   errorText: _errorMessage,
                 ),
-                obscureText: true, // Hide the password input
+                obscureText: true,
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the popup
+                Navigator.of(context).pop();
               },
               child: Text('Cancel'),
             ),
@@ -75,21 +216,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Future<void> _fetchStockData() async {
-    try {
-      DocumentSnapshot documentSnapshot = await FirebaseFirestore.instance
-          .collection('stockadmin')
-          .doc('realtimeStock')
-          .get();
-
-      setState(() {
-        stockData = documentSnapshot.data() as Map<String, dynamic>?;
-      });
-    } catch (e) {
-      print('Error fetching stock data: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,39 +224,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         centerTitle: true,
       ),
       body: _isAuthenticated
-          ? Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: stockData == null
-                  ? Center(
-                      child:
-                          CircularProgressIndicator()) // Show loading until data is fetched
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Stock Admin Data",
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(height: 20),
-                        Expanded(
-                          child: ListView(
-                            children: stockData!.entries.map((entry) {
-                              return ListTile(
-                                title: Text(entry
-                                    .key), // The key of the data (e.g., item name)
-                                subtitle: Text(
-                                    'Quantity: ${entry.value}'), // The value of the data (e.g., quantity)
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ],
-                    ),
+          ? ListView(
+              children: _stockDataWidgets,
             )
           : Center(
-              child:
-                  CircularProgressIndicator(), // Show loading until authenticated
+              child: CircularProgressIndicator(),
             ),
     );
   }
