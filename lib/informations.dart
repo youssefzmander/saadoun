@@ -92,7 +92,6 @@ class _ClientCreditsPageState extends State<ClientCreditsPage> {
       FirebaseFirestore.instance.collection('credit').doc(clientName).set({
         'totalCredit': 0,
         'articles': [],
-        'paid': false, // Adding a 'paid' field to track payment status
       }).then((_) {
         _clientNameController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -130,24 +129,20 @@ class _ClientCreditsPageState extends State<ClientCreditsPage> {
 
               final creditData = snapshot.data!;
               final articles = creditData['articles'] ?? [];
-              final isPaid =
-                  creditData.data() != null && (creditData['paid'] ?? false);
 
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  // List of Articles with Optional Delete Icon
+                  // List of Articles with Delete Icon
                   ...articles.map<Widget>((article) => ListTile(
                         title: Text(article['name']),
                         subtitle: Text('Price: ${article['price']}'),
-                        trailing: isPaid
-                            ? IconButton(
-                                icon: Icon(Icons.delete, color: Colors.red),
-                                onPressed: () {
-                                  _removeArticle(clientName, article);
-                                },
-                              )
-                            : null,
+                        trailing: IconButton(
+                          icon: Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            _removeArticle(clientName, article);
+                          },
+                        ),
                       )),
                   SizedBox(height: 20),
                   // Add Article Button
